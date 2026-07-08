@@ -13,12 +13,13 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QMessageBox,
     QAbstractItemView,
-    QHeaderView
+    QHeaderView,
+    QRadioButton
 )
 from PySide6.QtCore import QThread
-from functools import partial
+from PySide6.QtWebEngineWidgets import QWebEngineView
 from widgets.dataframe_model import DataFrameModel
-from core.pac_reporting import full_process
+from core.pac_reporting import (create_practice_distribution_chart, boxgraph)
 from config.settings_manager import (
     load_settings,
     save_settings_file
@@ -26,6 +27,8 @@ from config.settings_manager import (
 from workers.report_worker import (
     ReportWorker
 )
+from core.update_checker import (
+    check_for_updates)
 from version import APP_VERSION
 
 class MainWindow(QMainWindow):
@@ -48,12 +51,14 @@ class MainWindow(QMainWindow):
         self.pac_ended_tab = QWidget()
         self.pcsp_tab = QWidget()
         self.graphs_tab = QWidget()
+        self.boxgraph = QWidget()
 
         self.tabs.addTab(self.settings_tab, "Settings")
         self.tabs.addTab(self.icb_tab, "ICB Report")
         self.tabs.addTab(self.pac_ended_tab, "Missing PAC Ended")
         self.tabs.addTab(self.pcsp_tab, "Missing PCSP")
-        self.tabs.addTab(self.graphs_tab, "Graphs")
+        self.tabs.addTab(self.graphs_tab, "New Case Distribtion")
+        self.tabs.addTab(self.boxgraph, "Outcomes Analysis")
 
         self.setCentralWidget(self.tabs)
 
@@ -61,6 +66,7 @@ class MainWindow(QMainWindow):
         self.build_results_tabs()
 
         self.load_settings_into_ui()
+        self.check_updates()
 
         self.set_generate_highlight()
 
@@ -69,6 +75,7 @@ class MainWindow(QMainWindow):
         self.tabs.setTabEnabled(2, False)  # Missing PAC Ended
         self.tabs.setTabEnabled(3, False)  # Missing PCSP
         self.tabs.setTabEnabled(4, False)  # Graphs
+        self.tabs.setTabEnabled(5, False)  # Graphs
 
     def build_settings_tab(self):
 
@@ -331,14 +338,76 @@ class MainWindow(QMainWindow):
 
         graphs_layout = QVBoxLayout()
 
+        self.graph_view = QWebEngineView()
+
         graphs_layout.addWidget(
-            QLabel(
-                "Graphs will go here later"
-            )
+            self.graph_view
         )
 
         self.graphs_tab.setLayout(
             graphs_layout
+        )
+
+        outcomes_layout = QVBoxLayout()
+
+        self.no_split_radio = QRadioButton(
+            "No Split"
+        )
+
+        self.brave_split_radio = QRadioButton(
+            "Brave vs Referred"
+        )
+
+        self.pcsp_split_radio = QRadioButton(
+            "PCSP Present"
+        )
+
+        self.tep_split_radio = QRadioButton(
+            "TEP Present"
+        )
+
+        self.no_split_radio.setChecked(True)
+
+        outcomes_layout.addWidget(
+            self.no_split_radio
+        )
+
+        outcomes_layout.addWidget(
+            self.brave_split_radio
+        )
+
+        outcomes_layout.addWidget(
+            self.pcsp_split_radio
+        )
+
+        outcomes_layout.addWidget(
+            self.tep_split_radio
+        )
+
+        self.outcomes_graph = QWebEngineView()
+
+        outcomes_layout.addWidget(
+            self.outcomes_graph
+        )
+
+        self.boxgraph.setLayout(
+            outcomes_layout
+        )
+
+        self.no_split_radio.toggled.connect(
+            self.update_outcomes_chart
+        )
+
+        self.brave_split_radio.toggled.connect(
+            self.update_outcomes_chart
+        )
+
+        self.pcsp_split_radio.toggled.connect(
+            self.update_outcomes_chart
+        )
+
+        self.tep_split_radio.toggled.connect(
+            self.update_outcomes_chart
         )
 
     def add_practice_row(self):
@@ -627,7 +696,7 @@ class MainWindow(QMainWindow):
         self.thread.start()
 
     def report_complete(self, dfs):
-
+        self.dfs = dfs
         self.icb_table.setModel(
             DataFrameModel(
                 dfs["icb_report_export"]
@@ -656,8 +725,19 @@ class MainWindow(QMainWindow):
         self.tabs.setTabEnabled(2, True)
         self.tabs.setTabEnabled(3, True)
         self.tabs.setTabEnabled(4, True)
+        self.tabs.setTabEnabled(5, True)
         self.tabs.setCurrentIndex(1)   # jump to ICB tab
 
+        fig = create_practice_distribution_chart(
+            dfs["case_summary"]
+        )
+
+        self.graph_view.setHtml(
+            fig.to_html(
+                include_plotlyjs="cdn"
+            )
+        )
+        self.update_outcomes_chart()
         self.thread.quit()
 
     def report_error(self, message):
@@ -738,3 +818,69 @@ class MainWindow(QMainWindow):
         )
 
         self.mark_settings_dirty()
+    
+    def check_updates(self):
+
+        update_info = check_for_updates()
+
+        if not update_info:
+            return
+
+        if update_info["update_available"]:
+
+            QMessageBox.information(
+                self,
+                "Update Available",
+                f"""
+    Current Version:
+    {update_info['current']}
+
+    Latest Version:
+    {update_info['latest']}
+
+    Please download the latest version
+    from GitHub: 
+    https://github.com/Defiancegames/PAC_Reporting_App/archive/refs/heads/main.zip.
+    """
+            )
+    
+    def update_outcomes_chart(self):
+
+        print("update_outcomes_chart called")
+
+        if not hasattr(self, "dfs"):
+            return
+
+        if self.no_split_radio.isChecked():
+
+            split = "none"
+
+        elif self.brave_split_radio.isChecked():
+
+            split = "brave"
+
+        elif self.pcsp_split_radio.isChecked():
+
+            split = "pcsp"
+
+        else:
+
+            split = "tep"
+
+        try:
+
+            fig = boxgraph(
+                self.dfs,
+                split_by=split
+            )
+
+            self.outcomes_graph.setHtml(
+                fig.to_html(
+                    include_plotlyjs="cdn"
+                )
+            )
+
+        except Exception as e:
+
+            print(e)
+    

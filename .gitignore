@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# Build outputs
+build/
+dist/
+
+# PyInstaller
+*.spec
+
+# User-specific settings
+settings.json
+
+# Reports
+*.xlsx
+*.xls
+
+# Windows
+Thumbs.db
+Desktop.ini

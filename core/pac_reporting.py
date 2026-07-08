@@ -1,3 +1,5 @@
+from turtle import title
+
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
@@ -94,6 +96,7 @@ pcsp_declined = [
 cga_codes = [
     'assessment using comprehensive geriatric assessment toolkit'
     ,'holistic needs assessment'
+    ,'frailty assessment'
     ,'Comprehensive proactive care needs assessment'
 ]
 
@@ -1066,7 +1069,7 @@ def full_process(reports, pac_staff, exclude_minor_intervention = False, brave_m
         "missing_pcsp" : missing_pcsp,
         "icb_report_export" : icb_report_export,
         "extended_report_export" : extended_report_export,
-        "cases" : dfs['case_summary'][dfs['case_summary']["start_date"] > datetime.today().replace(day=1) - pd.DateOffset(months=12)]
+        "case_summary" : dfs['case_summary']
     }
     print("complete!")
     return return_dfs
@@ -1192,37 +1195,85 @@ def assess_coding(dfs):
         ]].head(30)
     return missing_provision, missing_pcsp
 
-def boxgraph(dfs):
+def boxgraph(dfs, split_by="none"):
 
-    df_plot = dfs['case_summary'].copy()
-    df_plot = df_plot[df_plot['12m_reportable']==True][['falls_diff_12m', 'ooh_diff_12m', 'primary_diff_12m', 'secondary_diff_12m', 'pcsp_in_place']]
+    df_plot = dfs['case_summary'][dfs['case_summary']["start_date"] > datetime.today().replace(day=1) - pd.DateOffset(months=26)]
+    df_plot = df_plot[df_plot['12m_reportable']==True][['falls_diff_12m',
+                                                        'ooh_diff_12m',
+                                                        'primary_diff_12m',
+                                                        'secondary_diff_12m',
+                                                        'pcsp_in_place',
+                                                        'brave_pt_in_place',
+                                                        'tep_in_place'
+                                                        ]]
 
     df_plot.rename(columns={'falls_diff_12m':'Change in falls',
                             'ooh_diff_12m':'Change in OOH',
                             'primary_diff_12m':'Change in GP demand',
-                            'secondary_diff_12m':'Change in Secondary'})
+                            'secondary_diff_12m':'Change in Secondary'}, inplace=True)
 
     df_long = df_plot.melt(
-        id_vars='pcsp_in_place',
+        id_vars=[
+            'pcsp_in_place',
+            'brave_pt_in_place',
+            'tep_in_place'
+        ],
         var_name='Metric',
         value_name='Value'
     )
-    
-    df_long['PCSP'] = df_long['pcsp_in_place'].map({
-        True: 'PCSP in place',
-        False: 'No PCSP'
-    })
 
-    fig = px.box(
-        df_long,
-        x='Metric',
-        y='Value',
-        color='PCSP',
-        points='all' 
-    )
+    if split_by == "none":
 
+        df_long["Group"] = "All Patients"
+
+    elif split_by == "brave":
+
+        df_long["Group"] = df_long[
+            "brave_pt_in_place"
+        ].map({
+            True: "Brave Patient",
+            False: "Practice Referred"
+        })
+
+    elif split_by == "pcsp":
+
+        df_long["Group"] = df_long[
+            "pcsp_in_place"
+        ].map({
+            True: "PCSP Present",
+            False: "No PCSP"
+        })
+
+    elif split_by == "tep":
+
+        df_long["Group"] = df_long[
+            "tep_in_place"
+        ].map({
+            True: "TEP Present",
+            False: "No TEP"
+        })
+
+    if split_by == "none":
+
+        fig = px.box(
+            df_long,
+            x="Metric",
+            y="Value",
+            points="all"
+        )
+
+    else:
+
+        fig = px.box(
+            df_long,
+            x="Metric",
+            y="Value",
+            color="Group",
+            points="all"
+        )
+    fig.update_layout(title="12m Before Intervention vs 12m After")
     fig.update_xaxes(categoryorder='array', categoryarray=['Change in GP demand', 'Change in Secondary', 'Change in OOH', 'Change in falls'])
-    fig.show()
+    return fig
 
 
 def run_report():
@@ -1247,6 +1298,63 @@ def run_report():
         missing_pac,
         missing_pcsp
     )
+
+def create_practice_distribution_chart(case_history):
+
+    case_history_last_12m = (
+        case_history[
+            case_history["start_date"]
+            > pd.Timestamp.today()
+            - pd.DateOffset(months=12)
+        ]
+    )
+
+    practice_dist = (
+        case_history_last_12m
+        .groupby(
+            [
+                case_history_last_12m["start_date"].dt.to_period("M"),
+                "Practice",
+                "brave_pt_in_place"
+            ]
+        )["NHS Number"]
+        .count()
+        .unstack(fill_value=0)
+        .rename(
+            columns={
+                False: "Practice Referred",
+                True: "Brave Patient"
+            }
+        )
+        .reset_index()
+    )
+
+    plot_df = practice_dist.melt(
+        id_vars=["start_date", "Practice"],
+        value_vars=[
+            "Practice Referred",
+            "Brave Patient"
+        ],
+        var_name="Source",
+        value_name="Count"
+    )
+
+    plot_df["start_date"] = (
+        plot_df["start_date"]
+        .astype(str)
+    )
+
+    fig = px.bar(
+        plot_df,
+        x="start_date",
+        y="Count",
+        color="Practice",
+        pattern_shape="Source",
+        barmode="stack",
+        title="PAC Starts by Practice and Referral Source"
+    )
+
+    return fig
 
 __all__ = [
     "full_process",

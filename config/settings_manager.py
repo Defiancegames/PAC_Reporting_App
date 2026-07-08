@@ -1,8 +1,18 @@
 import json
 from pathlib import Path
+import os
 
-SETTINGS_FILE = Path("settings.json")
+APP_FOLDER = Path(
+    os.getenv("LOCALAPPDATA")
+) / "PACMetrics"
 
+APP_FOLDER.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+SETTINGS_FILE = APP_FOLDER / "settings.json"
+print(APP_FOLDER)
 
 def load_settings():
 
