@@ -48,6 +48,7 @@ class MainWindow(QMainWindow):
 
         self.settings_tab = QWidget()
         self.icb_tab = QWidget()
+        self.extended_tab = QWidget()
         self.pac_ended_tab = QWidget()
         self.pcsp_tab = QWidget()
         self.graphs_tab = QWidget()
@@ -55,6 +56,7 @@ class MainWindow(QMainWindow):
 
         self.tabs.addTab(self.settings_tab, "Settings")
         self.tabs.addTab(self.icb_tab, "ICB Report")
+        self.tabs.addTab(self.extended_tab, "Numbers Report")
         self.tabs.addTab(self.pac_ended_tab, "Missing PAC Ended")
         self.tabs.addTab(self.pcsp_tab, "Missing PCSP")
         self.tabs.addTab(self.graphs_tab, "New Case Distribtion")
@@ -72,10 +74,11 @@ class MainWindow(QMainWindow):
 
         # Disable all result tabs initially
         self.tabs.setTabEnabled(1, False)  # ICB Report
-        self.tabs.setTabEnabled(2, False)  # Missing PAC Ended
-        self.tabs.setTabEnabled(3, False)  # Missing PCSP
-        self.tabs.setTabEnabled(4, False)  # Graphs
+        self.tabs.setTabEnabled(2, False)  # Extended Report
+        self.tabs.setTabEnabled(3, False)  # Missing PAC Ended
+        self.tabs.setTabEnabled(4, False)  # Missing PCSP
         self.tabs.setTabEnabled(5, False)  # Graphs
+        self.tabs.setTabEnabled(6, False)  # Graphs
 
     def build_settings_tab(self):
 
@@ -305,13 +308,37 @@ class MainWindow(QMainWindow):
 
         self.icb_table = QTableView()
 
+        self.export_icb_button = QPushButton(
+            "Export ICB Report"
+        )
+
+        self.export_icb_button.clicked.connect(
+            self.export_icb_report
+        )
+
         icb_layout = QVBoxLayout()
+
+        icb_layout.addWidget(
+            self.export_icb_button
+        )
+
         icb_layout.addWidget(
             self.icb_table
         )
 
         self.icb_tab.setLayout(
             icb_layout
+        )
+
+        self.extended_table = QTableView()
+
+        extended_layout = QVBoxLayout()
+        extended_layout.addWidget(
+            self.extended_table
+        )
+
+        self.extended_tab.setLayout(
+            extended_layout
         )
 
         self.pac_table = QTableView()
@@ -697,9 +724,16 @@ class MainWindow(QMainWindow):
 
     def report_complete(self, dfs):
         self.dfs = dfs
+        self.icb_report_export = dfs["icb_report_export"]
         self.icb_table.setModel(
             DataFrameModel(
-                dfs["icb_report_export"]
+                self.icb_report_export
+            )
+        )
+        
+        self.extended_table.setModel(
+            DataFrameModel(
+                dfs["extended_report_export"]
             )
         )
 
@@ -726,6 +760,7 @@ class MainWindow(QMainWindow):
         self.tabs.setTabEnabled(3, True)
         self.tabs.setTabEnabled(4, True)
         self.tabs.setTabEnabled(5, True)
+        self.tabs.setTabEnabled(6, True)
         self.tabs.setCurrentIndex(1)   # jump to ICB tab
 
         fig = create_practice_distribution_chart(
@@ -883,4 +918,43 @@ class MainWindow(QMainWindow):
         except Exception as e:
 
             print(e)
+        
+    def export_icb_report(self):
+
+        if not hasattr(
+            self,
+            "icb_report_export"
+        ):
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save ICB Report",
+            "PAC_ICB_Report.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+
+            self.icb_report_export.to_excel(
+                file_path,
+                engine="openpyxl"
+            )
+
+            QMessageBox.information(
+                self,
+                "Export Complete",
+                f"Report saved to:\n{file_path}"
+            )
+
+        except Exception as e:
+
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                str(e)
+            )
     
