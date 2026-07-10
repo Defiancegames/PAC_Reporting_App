@@ -5,7 +5,12 @@ Download PAC.Metrics.zip from the latest release (shown at the bottom of the rel
 Extract the PAC Metrics folder
 Run PAC Metrics.exe
 
-In the app there is a button to download the emis report template which will need importing to your practies systems, running and the results exported.
+In the app there is a button to download the emis report template which will need importing to your practies systems and running.
+
+When you export them select the following options
+- Export Format: HTML
+- Exclude report headers
+- Override hidden patients where possible
 
 Those exported results can then be added as practices in the app.
 
