@@ -1,3 +1,10 @@
+**Installation**
+
+Go to releases https://github.com/Defiancegames/PAC_Reporting_App/releases
+Download PAC.Metrics.zip from the latest release (shown at the bottom of the release notes)
+Extract the PAC Metrics folder
+Run PAC Metrics.exe
+
 **Features:**
 - ICB compliant report
 - Check coding for:
