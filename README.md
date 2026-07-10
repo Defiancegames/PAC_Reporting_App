@@ -5,6 +5,15 @@ Download PAC.Metrics.zip from the latest release (shown at the bottom of the rel
 Extract the PAC Metrics folder
 Run PAC Metrics.exe
 
+In the app there is a button to download the emis report template which will need importing to your practies systems, running and the results exported.
+
+Those exported results can then be added as practices in the app.
+
+You will also want to add a list of staff so the app can identify proactive care activity.
+in that list you also need to include any services accounts like Black Pear (SIDeR) that may also write to the patient records off the back of proactive care staff activity.
+
+Once both the practice reports and staff are added you can generate the reports and graphs.
+
 **Features:**
 - ICB compliant report
 - Check coding for:
