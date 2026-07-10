@@ -1,3 +1,4 @@
+import shutil
 from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QRadioButton
 )
+from PySide6.QtGui import QIcon
 from PySide6.QtCore import QThread
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from widgets.dataframe_model import DataFrameModel
@@ -30,12 +32,16 @@ from workers.report_worker import (
 from core.update_checker import (
     check_for_updates)
 from version import APP_VERSION
+from utils.paths import get_base_path
 
 class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-
+        self.setWindowIcon(
+            QIcon("assets/pac_metrics.ico")
+        )
+        self.loading_settings = True
         self.setWindowTitle("PAC Metrics")
         self.resize(1400, 900)
         self.setWindowTitle(
@@ -43,6 +49,7 @@ class MainWindow(QMainWindow):
 
         self.settings = load_settings()
         self.settings_dirty = False
+        self.base_path = get_base_path()
 
         self.tabs = QTabWidget()
 
@@ -68,6 +75,8 @@ class MainWindow(QMainWindow):
         self.build_results_tabs()
 
         self.load_settings_into_ui()
+        self.loading_settings = False
+        self.settings_dirty = False
         self.check_updates()
 
         self.set_generate_highlight()
@@ -147,6 +156,18 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(
             self.remove_practice_button
+        )
+
+        self.export_template_button = QPushButton(
+            "Download Search Template For EMIS"
+        )
+
+        self.export_template_button.clicked.connect(
+            self.export_emis_template
+        )
+
+        layout.addWidget(
+            self.export_template_button
         )
 
         # -----------------------------
@@ -790,7 +811,11 @@ class MainWindow(QMainWindow):
         self.generate_button.setEnabled(True)
 
         self.thread.quit()
+
     def mark_settings_dirty(self):
+
+        if getattr(self, "loading_settings", False):
+            return
 
         self.settings_dirty = True
 
@@ -957,4 +982,43 @@ class MainWindow(QMainWindow):
                 "Export Failed",
                 str(e)
             )
-    
+
+    def export_emis_template(self):
+
+        template_source = (
+            self.base_path /
+            "templates" /
+            "PAC V2.xml"
+        )
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save EMIS Template",
+            "PAC V2.xml",
+            "XML Files (*.xml)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+
+            shutil.copyfile(
+                template_source,
+                file_path
+            )
+
+            QMessageBox.information(
+                self,
+                "Template Exported",
+                f"Template saved to:\n{file_path}"
+            )
+
+        except Exception as e:
+
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                str(e)
+            )
+        
