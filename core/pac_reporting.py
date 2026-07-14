@@ -1268,7 +1268,8 @@ def boxgraph(dfs, split_by="none"):
             color="Group",
             points="all"
         )
-    fig.update_layout(title="12m Before Intervention vs 12m After")
+    sample_size = len(df_plot)
+    fig.update_layout(title=f"12m Before Intervention vs 12m After (n={sample_size})")
     fig.update_xaxes(categoryorder='array', categoryarray=['Change in GP demand', 'Change in Secondary', 'Change in OOH', 'Change in falls'])
     return fig
 

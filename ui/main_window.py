@@ -1,4 +1,5 @@
 import shutil
+import pandas as pd
 from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -33,6 +34,25 @@ from core.update_checker import (
     check_for_updates)
 from version import APP_VERSION
 from utils.paths import get_base_path
+
+EXPORT_BUTTON_STYLE = """
+QPushButton {
+    background-color: #0078d4;
+    color: white;
+    font-weight: bold;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #005a9e;
+}
+
+QPushButton:hover {
+    background-color: #106ebe;
+}
+
+QPushButton:pressed {
+    background-color: #005a9e;
+}
+"""
 
 class MainWindow(QMainWindow):
 
@@ -330,11 +350,11 @@ class MainWindow(QMainWindow):
         self.icb_table = QTableView()
 
         self.export_icb_button = QPushButton(
-            "Export ICB Report"
+            "⬇ Export ICB Report ⬇"
         )
 
-        self.export_icb_button.clicked.connect(
-            self.export_icb_report
+        self.export_icb_button.setStyleSheet(
+            EXPORT_BUTTON_STYLE
         )
 
         icb_layout = QVBoxLayout()
@@ -351,9 +371,36 @@ class MainWindow(QMainWindow):
             icb_layout
         )
 
+        self.export_icb_button.clicked.connect(
+            lambda: self.export_dataframe(
+                self.icb_report_export,
+                "PAC_ICB_Report.xlsx"
+            )
+        )
+
         self.extended_table = QTableView()
 
+        self.export_extended_button = QPushButton(
+            "⬇ Export Extended Report ⬇"
+        )
+
+        self.export_extended_button.setStyleSheet(
+            EXPORT_BUTTON_STYLE
+        )
+
         extended_layout = QVBoxLayout()
+
+        extended_layout.addWidget(
+            self.export_extended_button
+        )
+
+        self.export_extended_button.clicked.connect(
+            lambda: self.export_dataframe(
+                self.extended_report_export,
+                "PAC_Extended_Report.xlsx"
+            )
+        )
+  
         extended_layout.addWidget(
             self.extended_table
         )
@@ -364,7 +411,27 @@ class MainWindow(QMainWindow):
 
         self.pac_table = QTableView()
 
+        self.export_pac_button = QPushButton(
+            "⬇ Export Missing PAC Ended ⬇"
+        )
+
+        self.export_pac_button.setStyleSheet(
+            EXPORT_BUTTON_STYLE
+        )
+
+        self.export_pac_button.clicked.connect(
+            lambda: self.export_dataframe(
+                self.missing_pac_ended,
+                "PAC_Missing_PAC_Ended.xlsx"
+            )
+        )
+
         pac_layout = QVBoxLayout()
+
+        pac_layout.addWidget(
+            self.export_pac_button
+        )
+
         pac_layout.addWidget(
             self.pac_table
         )
@@ -375,7 +442,27 @@ class MainWindow(QMainWindow):
 
         self.pcsp_table = QTableView()
 
+        self.export_pcsp_button = QPushButton(
+            "⬇ Export Missing PCSP ⬇"
+        )
+
+        self.export_pcsp_button.setStyleSheet(
+            EXPORT_BUTTON_STYLE
+        )
+
+        self.export_pcsp_button.clicked.connect(
+            lambda: self.export_dataframe(
+                self.missing_pcsp,
+                "PAC_Missing_PCSP.xlsx"
+            )
+        )
+
         pcsp_layout = QVBoxLayout()
+
+        pcsp_layout.addWidget(
+            self.export_pcsp_button
+        )
+
         pcsp_layout.addWidget(
             self.pcsp_table
         )
@@ -745,7 +832,10 @@ class MainWindow(QMainWindow):
 
     def report_complete(self, dfs):
         self.dfs = dfs
-        self.icb_report_export = dfs["icb_report_export"]
+        self.icb_report_export = dfs["icb_report_export"].iloc[:,-12:]
+        self.extended_report_export = dfs["extended_report_export"].iloc[:,-12:]
+        self.missing_pac_ended = dfs["missing_pac_ended"]
+        self.missing_pcsp = dfs["missing_pcsp"]
         self.icb_table.setModel(
             DataFrameModel(
                 self.icb_report_export
@@ -754,7 +844,7 @@ class MainWindow(QMainWindow):
         
         self.extended_table.setModel(
             DataFrameModel(
-                dfs["extended_report_export"]
+                self.extended_report_export
             )
         )
 
@@ -906,9 +996,48 @@ class MainWindow(QMainWindow):
     
     def update_outcomes_chart(self):
 
-        print("update_outcomes_chart called")
-
         if not hasattr(self, "dfs"):
+            return
+
+        case_summary = self.dfs["case_summary"]
+
+        analysis_df = case_summary[
+            case_summary["start_date"]
+            > (
+                pd.Timestamp.today().replace(day=1)
+                - pd.DateOffset(months=26)
+            )
+        ]
+
+        analysis_df = analysis_df[
+            analysis_df["12m_reportable"] == True
+        ]
+
+        if len(analysis_df) < 10:
+
+            self.outcomes_graph.setHtml(
+                """
+                <html>
+                <body style="
+                    background-color:#2b2b2b;
+                    color:white;
+                    font-family:Segoe UI;
+                    text-align:center;
+                    padding-top:200px;
+                ">
+                    <h2>
+                        Not enough data available at this time
+                    </h2>
+
+                    <p>
+                        A minimum of 10 completed cases is required
+                        before outcomes analysis can be displayed.
+                    </p>
+                </body>
+                </html>
+                """
+            )
+
             return
 
         if self.no_split_radio.isChecked():
@@ -943,19 +1072,42 @@ class MainWindow(QMainWindow):
         except Exception as e:
 
             print(e)
-        
-    def export_icb_report(self):
 
-        if not hasattr(
-            self,
-            "icb_report_export"
-        ):
+            self.outcomes_graph.setHtml(
+                """
+                <html>
+                <body style="
+                    background-color:#2b2b2b;
+                    color:white;
+                    font-family:Segoe UI;
+                    text-align:center;
+                    padding-top:200px;
+                ">
+                    <h2>
+                        Not enough data available at this time
+                    </h2>
+                </body>
+                </html>
+                """
+            )
+            
+    def export_dataframe(
+        self,
+        dataframe,
+        default_filename
+    ):
+        if dataframe is None or dataframe.empty:
+            QMessageBox.warning(
+                self,
+                "No Data",
+                "There is no data available to export"
+            )
             return
-
+        
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Save ICB Report",
-            "PAC_ICB_Report.xlsx",
+            "Save Report",
+            default_filename,
             "Excel Files (*.xlsx)"
         )
 
@@ -964,9 +1116,10 @@ class MainWindow(QMainWindow):
 
         try:
 
-            self.icb_report_export.to_excel(
+            dataframe.to_excel(
                 file_path,
-                engine="openpyxl"
+                engine="openpyxl",
+                index=False
             )
 
             QMessageBox.information(
