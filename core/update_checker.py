@@ -5,7 +5,7 @@ from version import APP_VERSION
 
 def check_for_updates():
 
-    repo = "YOURUSERNAME/PAC-Metrics-App"
+    repo = "Defiancegames/PAC_Reporting_App"
 
     url = (
         f"https://api.github.com/repos/"

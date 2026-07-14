@@ -982,16 +982,16 @@ class MainWindow(QMainWindow):
                 self,
                 "Update Available",
                 f"""
-    Current Version:
-    {update_info['current']}
+                Current Version:
+                {update_info['current']}
 
-    Latest Version:
-    {update_info['latest']}
+                Latest Version:
+                {update_info['latest']}
 
-    Please download the latest version
-    from GitHub: 
-    https://github.com/Defiancegames/PAC_Reporting_App/archive/refs/heads/main.zip.
-    """
+                Please download the latest version
+                from GitHub: 
+                https://github.com/Defiancegames/PAC_Reporting_App/releases.
+                """
             )
     
     def update_outcomes_chart(self):
