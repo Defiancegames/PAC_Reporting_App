@@ -3,7 +3,10 @@
 Go to releases https://github.com/Defiancegames/PAC_Reporting_App/releases
 Download PAC.Metrics.zip from the latest release (shown at the bottom of the release notes)
 Extract the PAC Metrics folder
-Run PAC Metrics.exe
+
+You will have to right click "PAC Metrics.exe" and go to properties. in there the will be a checkbox that blocks the application, uncheck this and click okay.
+
+Then open the application.
 
 In the app there is a button to download the emis report template which will need importing to your practies systems and running.
 
