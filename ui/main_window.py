@@ -1,4 +1,6 @@
 import shutil
+import json
+import webbrowser
 import pandas as pd
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -18,7 +20,10 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QRadioButton
 )
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import (
+    QIcon,
+    QAction
+)
 from PySide6.QtCore import QThread
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from widgets.dataframe_model import DataFrameModel
@@ -91,6 +96,10 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.tabs)
 
+        ## Build menu ##
+        self.build_menu()
+
+        ## Build tabs ##
         self.build_settings_tab()
         self.build_results_tabs()
 
@@ -238,6 +247,17 @@ class MainWindow(QMainWindow):
             "Exclude Minor Interventions"
         )
 
+        self.exclude_minor.setToolTip(
+            """
+        Minor interventions are PAC cases that lasted less than 4 days.
+
+        When enabled, these cases are excluded from
+        outcomes analysis and change metrics as they
+        are unlikely to have had time to influence
+        service utilisation.
+        """
+        )
+
         layout.addWidget(
             self.exclude_minor
         )
@@ -344,6 +364,130 @@ class MainWindow(QMainWindow):
     def clear_generate_highlight(self):
 
         self.generate_button.setStyleSheet("")
+
+    def build_menu(self):
+
+        menu_bar = self.menuBar()
+
+        # -----------------
+        # FILE MENU
+        # -----------------
+
+        file_menu = menu_bar.addMenu("File")
+
+        import_action = QAction(
+            "Import Settings",
+            self
+        )
+
+        export_action = QAction(
+            "Export Settings",
+            self
+        )
+
+        template_action = QAction(
+            "Download EMIS Template",
+            self
+        )
+
+        exit_action = QAction(
+            "Exit",
+            self
+        )
+
+        import_action.triggered.connect(
+            self.import_settings
+        )
+
+        export_action.triggered.connect(
+            self.export_settings
+        )
+
+        template_action.triggered.connect(
+            self.export_emis_template
+        )
+
+        exit_action.triggered.connect(
+            self.close
+        )
+
+        file_menu.addAction(
+            import_action
+        )
+
+        file_menu.addAction(
+            export_action
+        )
+
+        file_menu.addSeparator()
+
+        file_menu.addAction(
+            template_action
+        )
+
+        file_menu.addSeparator()
+
+        file_menu.addAction(
+            exit_action
+        )
+
+        # -----------------
+        # HELP MENU
+        # -----------------
+
+        help_menu = menu_bar.addMenu("Help")
+
+        help_action = QAction(
+            "User Guide",
+            self
+        )
+
+        about_action = QAction(
+            "About PAC Metrics",
+            self
+        )
+
+        help_action.triggered.connect(
+            self.show_help
+        )
+
+        about_action.triggered.connect(
+            self.show_about
+        )
+
+        help_menu.addAction(
+            help_action
+        )
+
+        help_menu.addAction(
+            about_action
+        )
+
+    def show_about(self):
+
+        QMessageBox.about(
+            self,
+            "About PAC Metrics",
+            f"""
+    PAC Metrics
+
+    Version: {APP_VERSION}
+
+    Developed for proactive care teams.
+
+    Provides:
+    • ICB reporting
+    • PAC activity reporting
+    • Outcome analysis
+    • Coding audits
+    """
+        )
+
+    def show_help(self):
+
+        webbrowser.open(
+            "https://github.com/Defiancegames/PAC_Reporting_App/blob/main/README.md"
+        )
 
     def build_results_tabs(self):
 
@@ -1165,6 +1309,117 @@ class MainWindow(QMainWindow):
                 self,
                 "Template Exported",
                 f"Template saved to:\n{file_path}"
+            )
+
+        except Exception as e:
+
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                str(e)
+            )
+
+    def import_settings(self):
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Settings",
+            "",
+            "JSON Files (*.json)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+
+            with open(
+                file_path,
+                "r",
+                encoding="utf-8"
+            ) as f:
+
+                self.settings = json.load(f)
+
+            self.practice_table.setRowCount(0)
+            self.staff_table.setRowCount(0)
+
+            self.load_settings_into_ui()
+
+            QMessageBox.information(
+                self,
+                "Settings Imported",
+                "Settings imported successfully."
+            )
+
+        except Exception as e:
+
+            QMessageBox.critical(
+                self,
+                "Import Failed",
+                str(e)
+            )
+            
+    def export_settings(self):
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Settings",
+            "PAC_Metrics_Settings.json",
+            "JSON Files (*.json)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+
+            settings = {
+
+                "exclude_minor":
+                    self.exclude_minor.isChecked(),
+
+                "practices": [
+                    {
+                        "name": self.practice_table.item(row, 0).text(),
+                        "path": self.practice_table.item(row, 1).text()
+                    }
+                    for row in range(
+                        self.practice_table.rowCount()
+                    )
+                    if self.practice_table.item(row, 0)
+                    and self.practice_table.item(row, 1)
+                ],
+
+                "pac_staff": [
+                    {
+                        "forename": self.staff_table.item(row, 0).text(),
+                        "surname": self.staff_table.item(row, 1).text()
+                    }
+                    for row in range(
+                        self.staff_table.rowCount()
+                    )
+                    if self.staff_table.item(row, 0)
+                    and self.staff_table.item(row, 1)
+                ]
+            }
+
+            with open(
+                file_path,
+                "w",
+                encoding="utf-8"
+            ) as f:
+
+                json.dump(
+                    settings,
+                    f,
+                    indent=4
+                )
+
+            QMessageBox.information(
+                self,
+                "Export Complete",
+                "Settings exported successfully."
             )
 
         except Exception as e:
